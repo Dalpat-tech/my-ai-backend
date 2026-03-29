@@ -18,17 +18,20 @@ app.post('/api/chat', async (req, res) => {
     try {
         const { text, answerType } = req.body;
         
-        // તમારી Gemini API Key હવે કોડમાં નહિ, પણ Render ના છુપા સેટિંગ્સમાંથી આવશે
+        // જો પ્રોમ્પ્ટ ખાલી હોય (""), તો Gemini ને કૉલ કર્યા વગર જ સીધી એરર આપી દો (API નો બચાવ)
+        if (!prompts[answerType] || prompts[answerType].trim() === "") {
+            return res.json({ answer: "આ સુવિધા હાલમાં ઉપલબ્ધ નથી (This feature is currently not available)." });
+        }
+
+        // જો પ્રોમ્પ્ટ હોય, તો જ Gemini પાસે જવાબ માંગો
         const apiKey = process.env.GEMINI_API_KEY; 
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-
-        let systemPrompt = prompts[answerType] || "આ સુવિધા હાલમાં ઉપલબ્ધ નથી.";
 
         const response = await fetch(geminiUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                systemInstruction: { parts: [{ text: systemPrompt }] }, 
+                systemInstruction: { parts: [{ text: prompts[answerType] }] }, 
                 contents: [{ role: "user", parts: [{ text: text }] }],
                 generationConfig: { temperature: 0.0, topK: 1, topP: 0.1, maxOutputTokens: 8192 }
             })
