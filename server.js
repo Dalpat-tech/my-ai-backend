@@ -69,9 +69,7 @@ app.post('/api/chat', async (req, res) => {
 
         // જો પ્રોમ્પ્ટ હોય, તો જ Gemini પાસે જવાબ માંગો
         const apiKey = process.env.GEMINI_API_KEY; 
-        
-        // 👈 અહિયાં streamGenerateContent?alt=sse સેટ કર્યું છે
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${apiKey}`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
         const response = await fetch(geminiUrl, {
             method: "POST",
@@ -83,32 +81,18 @@ app.post('/api/chat', async (req, res) => {
             })
         });
 
+        const data = await response.json();
+        
         if (!response.ok) {
-            const errorData = await response.json();
-            return res.status(500).json({ error: errorData.error?.message || "Gemini API Error" });
+            return res.status(500).json({ error: data.error?.message || "Gemini API Error" });
         }
 
-        // 👈 Streaming માટે જરૂરી Headers સેટ કર્યા છે
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-
-        // 👈 Stream ને રીડ કરીને ફ્રન્ટએન્ડ પર ટુકડાઓમાં (chunks) મોકલવાનું લોજિક
-        const reader = response.body.getReader();
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            res.write(value); 
-        }
-        res.end();
+        const aiAnswerText = data.candidates[0].content.parts[0].text;
+        res.json({ answer: aiAnswerText });
 
     } catch (error) {
         console.error("Server Error:", error);
-        if (!res.headersSent) {
-            res.status(500).json({ error: "Server error occurred." });
-        } else {
-            res.end(); // જો હેડર મોકલાઈ ગયા હોય તો સીધું કનેક્શન પૂરું કરો
-        }
+        res.status(500).json({ error: "Server error occurred." });
     }
 });
 
@@ -116,3 +100,6 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
+
+
+Aama generateContentStream set karo and Biju Kai pan changes Karya vagar aakho code regenerate karo
