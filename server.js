@@ -20,7 +20,8 @@ Absolute Directives:
 6. Zero Error Tolerance: Ensure absolutely zero typographical errors, unnatural translations, or incorrect upper/lower casing. Mathematics, physics, and chemistry symbols must be used perfectly.
 7. Strict LaTeX Rendering: All mathematical equations, chemical formulas, and variables must be written in flawless standard LaTeX. Use $ for inline variables and $$ for display equations.
 8. Native Multilingual Adaptation: Detect the exact language of the user's prompt (e.g., Gujarati, Hindi, English) or strictly follow explicit instructions (e.g., "in Gujarati"). The entire response, including scientific vocabulary, must be generated strictly in that exact language with high academic standard.
-9. Strict Content Guardrails: If the user asks non-academic questions related to social media hacks, adult content, medical/medicine advice, or political parties, you must immediately deny the request. Do not provide any explanation. Simply output the equivalent of: "ક્ષમા કરે, મેં ઇસ પ્રશ્ન કા ઉત્તર નહીં દે શકતા" (Translate this exact refusal sentence into the language the user asked the question in).`,
+9. Strict Content Guardrails: If the user asks non-academic questions related to social media hacks, adult content, medical/medicine advice, or political parties, you must immediately deny the request. Do not provide any explanation. Simply output the equivalent of: "ક્ષમા કરે, મેં ઇસ પ્રશ્ન કા ઉત્તર નહીં દે શકતા" (Translate this exact refusal sentence into the language the user asked the question in).
+10. Continuation Handling: If the user prompt is "Please continue exactly from where you left off. Do not repeat the previous context.", you MUST seamlessly resume the exact sentence, formula, or derivation that was cut off previously. Do not add any new greetings, introductions, or repeated context.`,
     "Notes": "",
     "StudyWithTeacher": `System Role & Core Identity:
 You are an expert, deeply knowledgeable, and highly empathetic academic teacher. Your teaching style is extremely clear, patient, and designed to make even the most complex concepts easy to understand for first-time learners. You explain everything line-by-line and step-by-step, completely avoiding any skipped steps or rushed logic. Your tone is warm, highly human, and encouraging.
@@ -53,7 +54,8 @@ Absolute Directives:
 
 7. Strict Content Guardrails:
    - You are strictly an academic teacher. If the user asks non-academic questions related to social media tips, adult content, general life advice, or political parties, you must immediately deny the request.
-   - Do not provide any justification. Simply output the exact equivalent of the phrase: "ક્ષમા કરે, મેં ઇસ પ્રશ્ન કા ઉત્તર નહીં દે શકતા" (Translate this exact refusal sentence strictly into the language the user asked the question in).`,
+   - Do not provide any justification. Simply output the exact equivalent of the phrase: "ક્ષમા કરે, મેં ઇસ પ્રશ્ન કા ઉત્તર નહીં દે શકતા" (Translate this exact refusal sentence strictly into the language the user asked the question in).
+8. Continuation Handling: If the user prompt is "Please continue exactly from where you left off. Do not repeat the previous context.", you MUST seamlessly resume the exact sentence, formula, or derivation that was cut off previously. Do not add any new teacher greetings or repeated context.`,
     "OneLiners": "",
     "QuickRevision": ""
 };
@@ -70,8 +72,8 @@ app.post('/api/chat', async (req, res) => {
         // જો પ્રોમ્પ્ટ હોય, તો જ Gemini પાસે જવાબ માંગો
         const apiKey = process.env.GEMINI_API_KEY; 
         
-        // 👈 અહિયાં streamGenerateContent?alt=sse સેટ કર્યું છે
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${apiKey}`;
+        // પાછું સાદું generateContent લગાવી દીધું છે
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
         const response = await fetch(geminiUrl, {
             method: "POST",
@@ -83,32 +85,18 @@ app.post('/api/chat', async (req, res) => {
             })
         });
 
+        const data = await response.json();
+        
         if (!response.ok) {
-            const errorData = await response.json();
-            return res.status(500).json({ error: errorData.error?.message || "Gemini API Error" });
+            return res.status(500).json({ error: data.error?.message || "Gemini API Error" });
         }
 
-        // 👈 Streaming માટે જરૂરી Headers સેટ કર્યા છે
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-
-        // 👈 Stream ને રીડ કરીને ફ્રન્ટએન્ડ પર ટુકડાઓમાં (chunks) મોકલવાનું લોજિક
-        const reader = response.body.getReader();
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            res.write(value); 
-        }
-        res.end();
+        const aiAnswerText = data.candidates[0].content.parts[0].text;
+        res.json({ answer: aiAnswerText });
 
     } catch (error) {
         console.error("Server Error:", error);
-        if (!res.headersSent) {
-            res.status(500).json({ error: "Server error occurred." });
-        } else {
-            res.end(); // જો હેડર મોકલાઈ ગયા હોય તો સીધું કનેક્શન પૂરું કરો
-        }
+        res.status(500).json({ error: "Server error occurred." });
     }
 });
 
